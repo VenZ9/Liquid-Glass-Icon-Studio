@@ -84,9 +84,14 @@ export function loadSvgImage(preset: AppPreset): Promise<HTMLImageElement> {
       return;
     }
 
-    // Build standalone SVG string with pure white fill
+    // Build standalone SVG string with pure white fill or stroke
     const pathTags = preset.paths
-      .map(p => `<path d="${p}" fill="#FFFFFF" fill-rule="${preset.fillRule || 'nonzero'}" />`)
+      .map(p => {
+        if (preset.isStroked) {
+          return `<path d="${p}" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />`;
+        }
+        return `<path d="${p}" fill="#FFFFFF" fill-rule="${preset.fillRule || 'evenodd'}" />`;
+      })
       .join('');
 
     const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${preset.viewBox || '0 0 24 24'}">${pathTags}</svg>`;
@@ -145,154 +150,164 @@ export function renderLiquidGlassIcon(
   const scale = size / CANVAS_SIZE;
   const cx = size / 2;
   const cy = size / 2;
-  const radius = 202 * scale; // Fits cleanly with shadows inside 512x512
+  const radius = 205 * scale; // Fits cleanly with shadows inside 512x512
 
   const rgb = hexToRgb(settings.tintColor);
   const darkRatio = settings.darkness / 100;
   const opacRatio = settings.opacity / 100;
+  const tintIntensity = (settings.tintIntensity ?? 40) / 100;
 
   // 1. SOFT REALISTIC DROP SHADOWS
   if (settings.shadowOpacity > 0) {
+    const shadowMult = (settings.shadowOpacity / 100);
+
+    // Primary ambient soft drop shadow (dy=16, blur=20, opacity=0.55)
     ctx.save();
-    const shadowAlpha = (settings.shadowOpacity / 100) * 0.7;
-    const shadowY = (settings.shadowOffset / 100) * 32 * scale;
-    const shadowBlur = (settings.shadowBlur / 100) * 44 * scale;
-
-    ctx.shadowColor = `rgba(0, 0, 0, ${shadowAlpha})`;
-    ctx.shadowBlur = shadowBlur;
+    ctx.shadowColor = `rgba(0, 0, 0, ${0.55 * shadowMult})`;
+    ctx.shadowBlur = (settings.shadowBlur / 20) * 20 * scale;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = shadowY;
-
-    // Contact shadow body
-    createShapePath(ctx, settings.shape, cx, cy, radius);
-    ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha * 0.8})`;
+    ctx.shadowOffsetY = (settings.shadowOffset / 16) * 16 * scale;
+    createShapePath(ctx, settings.shape, cx, cy, radius - 1 * scale);
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.45 * shadowMult})`;
     ctx.fill();
     ctx.restore();
 
-    // Secondary ambient tight shadow
+    // Secondary tighter contact shadow (dy=6, blur=8, opacity=0.35)
     ctx.save();
-    ctx.shadowColor = `rgba(0, 0, 0, ${shadowAlpha * 0.5})`;
-    ctx.shadowBlur = shadowBlur * 0.4;
+    ctx.shadowColor = `rgba(0, 0, 0, ${0.35 * shadowMult})`;
+    ctx.shadowBlur = (settings.shadowBlur / 20) * 8 * scale;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = shadowY * 0.4;
-    createShapePath(ctx, settings.shape, cx, cy, radius);
-    ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha * 0.5})`;
+    ctx.shadowOffsetY = (settings.shadowOffset / 16) * 6 * scale;
+    createShapePath(ctx, settings.shape, cx, cy, radius - 1 * scale);
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.35 * shadowMult})`;
     ctx.fill();
     ctx.restore();
   }
 
-  // 2. CLIP TO GLASS SHAPE FOR INTERNAL REFRACTIONS & FROST
+  // 2. CLIP TO GLASS SHAPE FOR INTERNAL REFRACTIONS & LIGHTING
   ctx.save();
   createShapePath(ctx, settings.shape, cx, cy, radius);
   ctx.clip();
 
-  // 2a. Glass Body Dark Tint Base Gradient
-  const baseGrad = ctx.createLinearGradient(
-    cx - radius * 0.8,
-    cy - radius * 0.8,
-    cx + radius * 0.8,
-    cy + radius * 0.8
+  // 2a. Base Glass: Diffuse Spherical Dome Gradient (centered at top-left 34%, 32%)
+  const domeX = cx - radius * 0.32;
+  const domeY = cy - radius * 0.36;
+  const baseGrad = ctx.createRadialGradient(
+    domeX,
+    domeY,
+    radius * 0.05,
+    domeX,
+    domeY,
+    radius * 1.45
   );
 
-  // Top-left ambient refraction (subtle tinted illumination)
-  const topLightR = Math.min(255, Math.round(rgb.r * 1.6 + (1 - darkRatio) * 40));
-  const topLightG = Math.min(255, Math.round(rgb.g * 1.6 + (1 - darkRatio) * 45));
-  const topLightB = Math.min(255, Math.round(rgb.b * 1.6 + (1 - darkRatio) * 55));
+  // Stop 0%: Top-left diffuse dome (#3c414d = 60, 65, 77)
+  const r0 = Math.min(255, Math.round(60 * (1 - darkRatio * 0.35) + rgb.r * tintIntensity * 0.35));
+  const g0 = Math.min(255, Math.round(65 * (1 - darkRatio * 0.35) + rgb.g * tintIntensity * 0.35));
+  const b0 = Math.min(255, Math.round(77 * (1 - darkRatio * 0.35) + rgb.b * tintIntensity * 0.35));
 
-  // Deep dark glass core
-  const coreR = Math.round(rgb.r * (1 - darkRatio * 0.85));
-  const coreG = Math.round(rgb.g * (1 - darkRatio * 0.85));
-  const coreB = Math.round(rgb.b * (1 - darkRatio * 0.85));
+  // Stop 35%: Core body (#242831 = 36, 40, 49)
+  const r1 = Math.min(255, Math.round(36 * (1 - darkRatio * 0.45) + rgb.r * tintIntensity * 0.25));
+  const g1 = Math.min(255, Math.round(40 * (1 - darkRatio * 0.45) + rgb.g * tintIntensity * 0.25));
+  const b1 = Math.min(255, Math.round(49 * (1 - darkRatio * 0.45) + rgb.b * tintIntensity * 0.25));
 
-  baseGrad.addColorStop(0, `rgba(${topLightR}, ${topLightG}, ${topLightB}, ${opacRatio * 0.95})`);
-  baseGrad.addColorStop(0.45, `rgba(${coreR}, ${coreG}, ${coreB}, ${opacRatio * 0.96})`);
-  baseGrad.addColorStop(1, `rgba(${Math.round(coreR * 0.5)}, ${Math.round(coreG * 0.5)}, ${Math.round(coreB * 0.6)}, ${opacRatio})`);
+  // Stop 70%: Lower body (#16181e = 22, 24, 30)
+  const r2 = Math.min(255, Math.round(22 * (1 - darkRatio * 0.55) + rgb.r * tintIntensity * 0.15));
+  const g2 = Math.min(255, Math.round(24 * (1 - darkRatio * 0.55) + rgb.g * tintIntensity * 0.15));
+  const b2 = Math.min(255, Math.round(30 * (1 - darkRatio * 0.55) + rgb.b * tintIntensity * 0.15));
+
+  // Stop 100%: Bottom-right shadow (#0d0e12 = 13, 14, 18)
+  const r3 = Math.min(255, Math.round(13 * (1 - darkRatio * 0.65) + rgb.r * tintIntensity * 0.10));
+  const g3 = Math.min(255, Math.round(14 * (1 - darkRatio * 0.65) + rgb.g * tintIntensity * 0.10));
+  const b3 = Math.min(255, Math.round(18 * (1 - darkRatio * 0.65) + rgb.b * tintIntensity * 0.10));
+
+  baseGrad.addColorStop(0, `rgba(${r0}, ${g0}, ${b0}, ${opacRatio * 0.96})`);
+  baseGrad.addColorStop(0.35, `rgba(${r1}, ${g1}, ${b1}, ${opacRatio * 0.97})`);
+  baseGrad.addColorStop(0.70, `rgba(${r2}, ${g2}, ${b2}, ${opacRatio * 0.98})`);
+  baseGrad.addColorStop(1.0, `rgba(${r3}, ${g3}, ${b3}, ${opacRatio})`);
 
   ctx.fillStyle = baseGrad;
   ctx.fill();
 
-  // 2b. Frosted Glass Scattering (Internal Radial Glow)
-  if (settings.frostBlur > 0) {
-    const frostGrad = ctx.createRadialGradient(
-      cx - radius * 0.25,
-      cy - radius * 0.35,
-      radius * 0.1,
-      cx,
-      cy,
-      radius
+  // 2b. Specular Sheen (soft diffuse light pool centered at top-left)
+  if (settings.topHighlight > 0) {
+    const sheenGrad = ctx.createRadialGradient(
+      domeX,
+      domeY,
+      radius * 0.02,
+      domeX,
+      domeY,
+      radius * 0.84
     );
-    const frostStrength = (settings.frostBlur / 100) * 0.18;
-    frostGrad.addColorStop(0, `rgba(255, 255, 255, ${frostStrength})`);
-    frostGrad.addColorStop(0.5, `rgba(255, 255, 255, ${frostStrength * 0.3})`);
-    frostGrad.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+    const sheenMult = settings.topHighlight / 100;
+    sheenGrad.addColorStop(0, `rgba(255, 255, 255, ${0.22 * sheenMult})`);
+    sheenGrad.addColorStop(0.45, `rgba(255, 255, 255, ${0.08 * sheenMult})`);
+    sheenGrad.addColorStop(0.85, `rgba(255, 255, 255, ${0.01 * sheenMult})`);
+    sheenGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
 
-    ctx.fillStyle = frostGrad;
+    ctx.fillStyle = sheenGrad;
     ctx.fill();
   }
 
-  // 2c. Bottom Caustic Bounce (Subtle internal bottom meniscus glow)
+  // 2c. Meniscus Glow (curved inner edge sheen)
+  if (settings.topHighlight > 15) {
+    const meniscusGrad = ctx.createRadialGradient(
+      cx - radius * 0.44,
+      cy - radius * 0.48,
+      radius * 0.05,
+      cx - radius * 0.44,
+      cy - radius * 0.48,
+      radius * 0.70
+    );
+    const meniscusMult = (settings.topHighlight / 100);
+    meniscusGrad.addColorStop(0, `rgba(255, 255, 255, ${0.18 * meniscusMult})`);
+    meniscusGrad.addColorStop(0.60, `rgba(255, 255, 255, ${0.05 * meniscusMult})`);
+    meniscusGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = meniscusGrad;
+    ctx.fill();
+  }
+
+  // 2d. Bottom Caustic Bounce (Subtle internal bottom meniscus glow)
   if (settings.bottomReflection > 0) {
     const bottomBounce = ctx.createRadialGradient(
       cx,
       cy + radius * 0.82,
       radius * 0.05,
       cx,
-      cy + radius * 0.7,
-      radius * 0.75
+      cy + radius * 0.75,
+      radius * 0.60
     );
-    const bounceStrength = (settings.bottomReflection / 100) * 0.35;
+    const bounceStrength = (settings.bottomReflection / 100) * 0.14;
     bottomBounce.addColorStop(0, `rgba(255, 255, 255, ${bounceStrength})`);
-    bottomBounce.addColorStop(0.6, `rgba(255, 255, 255, ${bounceStrength * 0.15})`);
+    bottomBounce.addColorStop(0.6, `rgba(255, 255, 255, ${bounceStrength * 0.25})`);
     bottomBounce.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
     ctx.fillStyle = bottomBounce;
     ctx.fill();
   }
 
-  // 2d. Curved Liquid Meniscus Surface Highlight (iOS 26 Signature Liquid Crescent)
-  if (settings.topHighlight > 0) {
+  // 2e. Inner Crescent Rim Light (Directional stroke hugging perimeter inside glass)
+  if (settings.rimLight > 0) {
     ctx.save();
-    ctx.beginPath();
-    // Curved liquid meniscus path across upper bubble
-    ctx.moveTo(cx - radius, cy - radius * 0.05);
-    ctx.quadraticCurveTo(cx, cy + radius * 0.22, cx + radius, cy - radius * 0.05);
-    ctx.lineTo(cx + radius, cy - radius);
-    ctx.lineTo(cx - radius, cy - radius);
-    ctx.closePath();
-
-    const meniscusGrad = ctx.createLinearGradient(
-      cx,
-      cy - radius,
-      cx,
-      cy + radius * 0.2
+    const rimGrad = ctx.createLinearGradient(
+      cx - radius * 0.6,
+      cy - radius * 0.7,
+      cx + radius * 0.6,
+      cy + radius * 0.7
     );
-    const highStrength = (settings.topHighlight / 100) * 0.28;
-    meniscusGrad.addColorStop(0, `rgba(255, 255, 255, ${highStrength})`);
-    meniscusGrad.addColorStop(0.5, `rgba(255, 255, 255, ${highStrength * 0.35})`);
-    meniscusGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    const rimAlpha = (settings.rimLight / 100);
+    const botAlpha = (settings.bottomReflection / 100);
+    rimGrad.addColorStop(0, `rgba(255, 255, 255, ${0.55 * rimAlpha})`);
+    rimGrad.addColorStop(0.35, `rgba(255, 255, 255, ${0.20 * rimAlpha})`);
+    rimGrad.addColorStop(0.70, 'rgba(255, 255, 255, 0.06)');
+    rimGrad.addColorStop(1.0, `rgba(255, 255, 255, ${0.10 * botAlpha})`);
 
-    ctx.fillStyle = meniscusGrad;
-    ctx.fill();
+    createShapePath(ctx, settings.shape, cx, cy, radius - 1.2 * scale);
+    ctx.lineWidth = 2.4 * scale;
+    ctx.strokeStyle = rimGrad;
+    ctx.stroke();
     ctx.restore();
-  }
-
-  // 2e. Top-Left Specular Light Pinpoint / Sheen
-  if (settings.topHighlight > 20) {
-    const sheenGrad = ctx.createRadialGradient(
-      cx - radius * 0.42,
-      cy - radius * 0.48,
-      2 * scale,
-      cx - radius * 0.42,
-      cy - radius * 0.48,
-      radius * 0.48
-    );
-    const sheenStrength = (settings.topHighlight / 100) * 0.32;
-    sheenGrad.addColorStop(0, `rgba(255, 255, 255, ${sheenStrength})`);
-    sheenGrad.addColorStop(0.4, `rgba(255, 255, 255, ${sheenStrength * 0.3})`);
-    sheenGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-    ctx.fillStyle = sheenGrad;
-    ctx.fill();
   }
 
   // 3. LOGO RENDERING
@@ -302,26 +317,23 @@ export function renderLiquidGlassIcon(
   const logoAlpha = settings.logoOpacity / 100;
 
   ctx.save();
-  // Logo shadow / soft depth inside glass
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-  ctx.shadowBlur = 8 * scale;
+  // Logo shadow / realistic depth inside glass
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 3.5 * scale;
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 4 * scale;
+  ctx.shadowOffsetY = 2.5 * scale;
   ctx.globalAlpha = logoAlpha;
 
   if (preloadedImg && preloadedImg.complete && preloadedImg.naturalWidth > 0) {
-    // If user provided a custom image or loaded SVG
     if (settings.logoGlow > 0) {
-      // Ambient backlight glow behind logo
       ctx.save();
-      ctx.shadowColor = `rgba(255, 255, 255, ${(settings.logoGlow / 100) * 0.45})`;
-      ctx.shadowBlur = 18 * scale;
+      ctx.shadowColor = `rgba(255, 255, 255, ${(settings.logoGlow / 100) * 0.35})`;
+      ctx.shadowBlur = 14 * scale;
       ctx.drawImage(preloadedImg, logoX, logoY, logoDiameter, logoDiameter);
       ctx.restore();
     }
     ctx.drawImage(preloadedImg, logoX, logoY, logoDiameter, logoDiameter);
   } else {
-    // Direct Path2D rendering fallback if image hasn't loaded yet
     try {
       ctx.save();
       const [vx, vy, vw, vh] = (preset.viewBox || '0 0 24 24').split(' ').map(Number);
@@ -330,14 +342,24 @@ export function renderLiquidGlassIcon(
       ctx.translate(logoX - vx * sX, logoY - vy * sY);
       ctx.scale(sX, sY);
 
-      ctx.fillStyle = '#FFFFFF';
-      for (const p of preset.paths) {
-        const pathObj = new Path2D(p);
-        ctx.fill(pathObj, preset.fillRule || 'nonzero');
+      if (preset.isStroked) {
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (const p of preset.paths) {
+          const pathObj = new Path2D(p);
+          ctx.stroke(pathObj);
+        }
+      } else {
+        ctx.fillStyle = '#FFFFFF';
+        for (const p of preset.paths) {
+          const pathObj = new Path2D(p);
+          ctx.fill(pathObj, preset.fillRule || 'evenodd');
+        }
       }
       ctx.restore();
     } catch {
-      // Fallback simple white circle emblem if path parsing fails
       ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
       ctx.arc(cx, cy, logoDiameter * 0.35, 0, Math.PI * 2);
@@ -346,49 +368,16 @@ export function renderLiquidGlassIcon(
   }
   ctx.restore();
 
-  // 4. INNER RIM LIGHTING (Crescent meniscus edge refraction)
-  if (settings.rimLight > 0) {
-    ctx.save();
-    const rimGrad = ctx.createLinearGradient(
-      cx - radius * 0.8,
-      cy - radius * 0.8,
-      cx + radius * 0.8,
-      cy + radius * 0.8
-    );
-    const rimAlpha = (settings.rimLight / 100) * 0.75;
-    rimGrad.addColorStop(0, `rgba(255, 255, 255, ${rimAlpha})`);
-    rimGrad.addColorStop(0.4, `rgba(255, 255, 255, ${rimAlpha * 0.25})`);
-    rimGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.05)');
-    rimGrad.addColorStop(1, `rgba(255, 255, 255, ${(settings.bottomReflection / 100) * 0.35})`);
-
-    createShapePath(ctx, settings.shape, cx, cy, radius - 1.2 * scale);
-    ctx.lineWidth = 2.4 * scale;
-    ctx.strokeStyle = rimGrad;
-    ctx.stroke();
-    ctx.restore();
-  }
-
   // Restore clip
   ctx.restore();
 
-  // 5. OUTER GLASS MENISCUS BORDER
-  if (settings.borderWidth > 0 && settings.borderOpacity > 0) {
+  // 4. OUTER GLASS MENISCUS BORDER RING
+  if (settings.borderOpacity > 0) {
     ctx.save();
     createShapePath(ctx, settings.shape, cx, cy, radius);
-    ctx.lineWidth = settings.borderWidth * scale;
-
-    const borderGrad = ctx.createLinearGradient(
-      cx - radius,
-      cy - radius,
-      cx + radius,
-      cy + radius
-    );
-    const borderAlpha = settings.borderOpacity / 100;
-    borderGrad.addColorStop(0, `rgba(255, 255, 255, ${borderAlpha * 0.85})`);
-    borderGrad.addColorStop(0.5, `rgba(255, 255, 255, ${borderAlpha * 0.2})`);
-    borderGrad.addColorStop(1, `rgba(255, 255, 255, ${borderAlpha * 0.45})`);
-
-    ctx.strokeStyle = borderGrad;
+    ctx.lineWidth = Math.max(1, (settings.borderWidth || 1.2) * scale);
+    const borderAlpha = (settings.borderOpacity / 100) * 0.28;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${borderAlpha})`;
     ctx.stroke();
     ctx.restore();
   }

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Search, CheckSquare, Square, Download, Plus, Sparkles } from 'lucide-react';
 import { AppPreset, GlassSettings, IconCategory } from '../types';
 import { exportSingleIcon } from '../utils/exportUtils';
+import { LiquidGlassSvg } from './LiquidGlassSvg';
 
 interface AppGridProps {
   presets: AppPreset[];
@@ -216,42 +217,14 @@ export const AppGrid: React.FC<AppGridProps> = ({
                   <Download className="w-3 h-3" />
                 </button>
 
-                {/* Mini Liquid Glass Icon Bubble */}
+                {/* Authentic Layered Liquid Glass Icon */}
                 <div className="relative w-14 h-14 mt-1 flex items-center justify-center">
-                  {/* Subtle glass bubble backdrop */}
-                  <div
-                    className="absolute inset-0 rounded-full border border-white/30 shadow-lg"
-                    style={{
-                      background: `linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(10,13,20,0.85) 50%, rgba(4,6,10,0.95) 100%)`,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                    }}
+                  <LiquidGlassSvg
+                    preset={preset}
+                    settings={settings}
+                    size={56}
+                    className="w-14 h-14 filter transition-transform duration-200 group-hover:scale-105"
                   />
-                  {/* Liquid meniscus specular highlight */}
-                  <div className="absolute top-1 left-2.5 w-5 h-2 rounded-full bg-white/40 blur-[0.4px]" />
-
-                  {/* Logo SVG */}
-                  <div className="relative z-10 w-7 h-7 flex items-center justify-center drop-shadow-md">
-                    {preset.customImageDataUrl ? (
-                      <img
-                        src={preset.customImageDataUrl}
-                        alt={preset.name}
-                        className="w-full h-full object-contain filter brightness-110"
-                      />
-                    ) : (
-                      <svg
-                        viewBox={preset.viewBox || '0 0 24 24'}
-                        className="w-full h-full fill-white"
-                      >
-                        {preset.paths.map((p, i) => (
-                          <path
-                            key={i}
-                            d={p}
-                            fillRule={preset.fillRule || 'nonzero'}
-                          />
-                        ))}
-                      </svg>
-                    )}
-                  </div>
                 </div>
 
                 {/* App Name & Category */}

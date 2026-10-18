@@ -21,6 +21,7 @@ export interface AppPreset {
   keywords?: string[];
   isCustom?: boolean;
   customImageDataUrl?: string;
+  isStroked?: boolean;
 }
 
 export interface GlassSettings {

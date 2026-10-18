@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Wifi, Battery, Sparkles, Search } from 'lucide-react';
 import { AppPreset, GlassSettings, WallpaperOption } from '../types';
 import { WALLPAPER_OPTIONS } from '../data/wallpapers';
+import { LiquidGlassSvg } from './LiquidGlassSvg';
 
 interface PhoneMockupProps {
   presets: AppPreset[];
@@ -120,43 +121,17 @@ export const PhoneMockup: React.FC<PhoneMockupProps> = ({
                   onClick={() => onSelectPreset(app)}
                   className="flex flex-col items-center gap-1 cursor-pointer group"
                 >
-                  {/* Glass Icon Bubble */}
-                  <div
-                    className={`relative w-11 h-11 flex items-center justify-center transition-transform group-hover:scale-105 ${
-                      settings.shape === 'squircle'
-                        ? 'rounded-2xl'
-                        : settings.shape === 'rounded-square'
-                        ? 'rounded-xl'
-                        : 'rounded-full'
-                    }`}
-                    style={{
-                      background: `linear-gradient(135deg, rgba(255,255,255,0.14) 0%, ${settings.tintColor} 55%, rgba(0,0,0,0.95) 100%)`,
-                      border: `${Math.max(1, settings.borderWidth * 0.7)}px solid rgba(255,255,255,${settings.borderOpacity / 100})`,
-                      boxShadow: `0 6px 14px rgba(0,0,0,${settings.shadowOpacity / 100})`,
-                    }}
-                  >
-                    {/* Top specular highlight curve */}
-                    <div className="absolute top-0.5 left-1.5 w-4 h-1.5 rounded-full bg-white/40 blur-[0.3px]" />
-
-                    {/* Logo SVG */}
-                    <div className="relative z-10 w-5 h-5 flex items-center justify-center">
-                      <svg
-                        viewBox={app.viewBox || '0 0 24 24'}
-                        className="w-full h-full fill-white drop-shadow-sm"
-                      >
-                        {app.paths.map((p, i) => (
-                          <path
-                            key={i}
-                            d={p}
-                            fillRule={app.fillRule || 'nonzero'}
-                          />
-                        ))}
-                      </svg>
-                    </div>
-
+                  {/* Liquid Glass Icon Bubble */}
+                  <div className="relative w-11 h-11 flex items-center justify-center transition-transform group-hover:scale-105">
+                    <LiquidGlassSvg
+                      preset={app}
+                      settings={settings}
+                      size={44}
+                      className="w-11 h-11"
+                    />
                     {/* Active highlight glow */}
                     {isActive && (
-                      <div className="absolute inset-0 rounded-full ring-2 ring-sky-400 ring-offset-1 ring-offset-black" />
+                      <div className="absolute inset-0 rounded-full ring-2 ring-sky-400 ring-offset-1 ring-offset-black pointer-events-none" />
                     )}
                   </div>
                   <span className="text-[10px] font-medium text-white/90 truncate max-w-[56px] text-center drop-shadow-md">
@@ -179,38 +154,15 @@ export const PhoneMockup: React.FC<PhoneMockupProps> = ({
                   onClick={() => onSelectPreset(app)}
                   className="flex flex-col items-center cursor-pointer group"
                 >
-                  <div
-                    className={`relative w-11 h-11 flex items-center justify-center transition-transform group-hover:scale-105 ${
-                      settings.shape === 'squircle'
-                        ? 'rounded-2xl'
-                        : settings.shape === 'rounded-square'
-                        ? 'rounded-xl'
-                        : 'rounded-full'
-                    }`}
-                    style={{
-                      background: `linear-gradient(135deg, rgba(255,255,255,0.18) 0%, ${settings.tintColor} 55%, rgba(0,0,0,0.95) 100%)`,
-                      border: `${Math.max(1, settings.borderWidth * 0.7)}px solid rgba(255,255,255,${settings.borderOpacity / 100})`,
-                      boxShadow: `0 6px 14px rgba(0,0,0,${settings.shadowOpacity / 100})`,
-                    }}
-                  >
-                    <div className="absolute top-0.5 left-1.5 w-4 h-1.5 rounded-full bg-white/40 blur-[0.3px]" />
-                    <div className="relative z-10 w-5 h-5 flex items-center justify-center">
-                      <svg
-                        viewBox={app.viewBox || '0 0 24 24'}
-                        className="w-full h-full fill-white drop-shadow-sm"
-                      >
-                        {app.paths.map((p, i) => (
-                          <path
-                            key={i}
-                            d={p}
-                            fillRule={app.fillRule || 'nonzero'}
-                          />
-                        ))}
-                      </svg>
-                    </div>
-
+                  <div className="relative w-11 h-11 flex items-center justify-center transition-transform group-hover:scale-105">
+                    <LiquidGlassSvg
+                      preset={app}
+                      settings={settings}
+                      size={44}
+                      className="w-11 h-11"
+                    />
                     {isActive && (
-                      <div className="absolute inset-0 rounded-full ring-2 ring-sky-400 ring-offset-1 ring-offset-black" />
+                      <div className="absolute inset-0 rounded-full ring-2 ring-sky-400 ring-offset-1 ring-offset-black pointer-events-none" />
                     )}
                   </div>
                 </div>
